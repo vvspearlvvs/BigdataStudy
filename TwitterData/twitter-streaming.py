@@ -39,7 +39,27 @@ def extract_data(*args, **kwargs):
                 'created_at':tweet['created_at'],'text':tweet['text']
             }
 
+def spark_session(mongodb_uri):
+    # spark transform
+    spark = SparkSession.builder.appName("myapp") \
+        .config("spark.mongodb.input.uri",mongodb_uri) \
+        .config("spark.mongodb.ouput.uri",mongodb_uri) \
+        .config('spark.jars.packages', 'org.mongodb.spark:mongo-spark-connector_2.12:3.0.1') \
+        .getOrCreate()
+
+    return spark
+
+    #df.createTempView('tweets')
+    #df.printSchema()
+
 if __name__ == "__main__":
     load_data()
     df= pd.DataFrame(extract_data({'lang':'ko'},limit=10))
     print(df)
+
+    print("spark session")
+    spark = spark_session(mongodb_uri)
+    df=spark.read.format("com.mongodb.spark.sql.DefaultSource").load().show(10,False)
+    print(df)
+
+    #문제 : extract한 data를 spark session에서 읽어야하는데 현재 mongodb에 있는 rawdata를 가지고 오는 중..
