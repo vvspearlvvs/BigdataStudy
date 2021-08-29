@@ -7,7 +7,7 @@ from rest_framework.views import APIView
 from .models import Product
 from .serializers import UserSerializer,GroupSerializer,ProductSerializer
 
-import csv
+import csv,json
 
 class UserViewSet(viewsets.ModelViewSet):
     queryset = User.objects.all().order_by('-date_joined')
@@ -25,32 +25,35 @@ class Search(APIView):
 
         query = request.GET['query']
         print("검색어",query)
-
+        response = {'query':query,'find':'[1,2,]'}
         #response메시지를 만들어야함
-        return Response(status=200)
+        return Response(response,status=200)
 
 
 class ProductViewSet(APIView):
-    model=Product
-    queryset = Product.objects.all()
-    #queryset.delete()
-    #print("model objects 다 지우기")
-    bulk_list=[]
+    def get(self,request):
+        model=Product
+        queryset = Product.objects.all()
+        #queryset.delete()
+        #print("model objects 다 지우기")
 
-    #Product 모델이 비었을때 데이터셋 bulk crate
-    if queryset.exists() == False:
-        with open("C:\\Users\\gg664\\IdeaProjects\\NewSearch\\mysite\\search\\data\\prodct_name.tsv","r", encoding='UTF8') as raw_file:
-            reader = csv.reader(raw_file,delimiter ='\t')
+        bulk_list=[]
+        #Product 모델이 비었을때 데이터셋 bulk crate
+        if queryset.exists() == False:
+            with open("C:\\Users\\gg664\\IdeaProjects\\Bigdata_Study\\NewSearch\\mysite\\search\\data\\test_data.csv","r", encoding='UTF8') as raw_file:
+                reader = csv.reader(raw_file,delimiter ='\t')
 
-            next(reader) # header 생략
-            for row in reader:
-                bulk_list.append(Product(id=row[0],name=row[1]))
+                next(reader) # header 생략
+                for row in reader:
+                    bulk_list.append(Product(id=row[0],name=row[1]))
 
-        Product.objects.bulk_create(bulk_list)
-        print("product에 bulk 완료")
-    else:
-        print("이미 product에 data 있음")
-        serializer_class = ProductSerializer
+            Product.objects.bulk_create(bulk_list)
+            print("product에 bulk 완료")
+
+        print("이미 product에 data 있음",Product.objects.all())
+        serializer_class = ProductSerializer(queryset,many=True)
+
+        return Response(serializer_class.data,status=200)
 
     def get_list(self,request):
         return Product.objects.all()
