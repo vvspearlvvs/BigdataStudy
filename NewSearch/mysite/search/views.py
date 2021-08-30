@@ -4,9 +4,17 @@ from rest_framework import viewsets, exceptions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .serializers import *
+import sys
+import csv
+import os
+BASE_PATH = os.path.dirname(os.path.abspath(__file__))
+DATA_PATH = BASE_PATH+'/data/'
+index_filename = 'test_index.parquet'
+tfdif_filename = 'test_tfidf.parquet'
 
+from .serializers import *
 from .processing import *
+
 
 class UserViewSet(viewsets.ModelViewSet):
     queryset = User.objects.all().order_by('-date_joined')
@@ -20,60 +28,61 @@ class GroupViewSet(viewsets.ModelViewSet):
 class Search(APIView):
     def get(self,request):
         if not 'query' in request.GET:
-            raise exceptions.ParseError("검색어를 입력해주세요")
+            raise exceptions.ParseError("Query Parameter Sample : /search?query=아이폰 ")
 
-        # model에 없을때만 data load, index 생성
-        prd_queryset = Product.objects.all()
-        prd_queryset.delete()
+        # model에 data -> df로사용
+        raw_queryset = Product.objects.all()
+        raw_queryset.delete()
 
-        if prd_queryset.exists() == False:
+        # model에 data없을때 초기세팅
+        if raw_queryset.exists() == False:
+            print("초기세팅")
+            raw_df = data_load()
 
-            df = data_load()
-
-            # product model에 data 넣기 -> 굳이?
-            product_obj = [Product(id=row['id'],name=row['name'],token=row['token']) for i,row in df.iterrows()]
+            # product model에 data bulk crate
+            product_obj = [Product(id=row['id'],name=row['name'],token=row['token']) for i,row in raw_df.iterrows()]
             Product.objects.bulk_create(product_obj)
 
             # index parquet 파일생성
-            json_data = data_json(df)
+            json_data = data_json(raw_df)
             save_invertedInex(json_data)
 
             # tf-idf parquet 파일생성
-            save_tfidf(df)
+            save_tfidf(raw_df)
 
-        #이미 load한 상태는 query 처리
+        #이미 load한 상태
+        print("이미 세팅된 상태")
+        df = pd.DataFrame(list(raw_queryset.values()))
+
         query = request.GET['query']
         print("검색어",query)
-        token_list = tokenizer(query).split()
+        token_list = tokenizer(query)
         print("토큰결과",token_list)
 
-        # 예외사항 : token에 해당하는 이름이 아니면 오류
-
         #index file 가져오기
-        index_file ='C:\\Users\\gg664\\IdeaProjects\\Bigdata_Study\\NewSearch\\mysite\\search\\data\\test_index.parquet'
-        index_df = pq.read_table(index_file).to_pandas()
-        #print("index file",index_df)
+        index_df = pq.read_table(DATA_PATH+index_filename).to_pandas()
+        #tf-idf file 가져오기
+        tfidf_df = pq.read_table(DATA_PATH+tfdif_filename).to_pandas()
 
-
-        #토큰결과를 가지고 revered_index에서 documnet list찾아옴 -> 다시 행으로 검색해야함..
-        q_documents=[]
+        #토큰결과를 가지고 revered_index에서 documnet list 검색 -> 다시 행으로 검색해야함..
         search_token = index_df[index_df['token'].isin(token_list)]
+        new_token_list = list(search_token['token'])
+        #없는 키워드로 검색할 경우
+        if len(new_token_list) == 0:
+            raise exceptions.ParseError("없는 키워드입니다")
+
+        #documnet list 검색
+        q_documents=[]
         for docu_list in search_token['docu_list']:
             q_documents.append(set(docu_list))
-            #print(q_documents)
-
         # 문서들의 교집합
         query_documents = list(q_documents[0].intersection(*q_documents))
-        #print(query_documents)
-
-        #tf-idf file 가져오기
-        #index file 가져오기
-        tfidf_file ='C:\\Users\\gg664\\IdeaProjects\\Bigdata_Study\\NewSearch\\mysite\\search\\data\\test_tfidf.parquet'
-        tfidf_df = pq.read_table(tfidf_file).to_pandas()
-        #print("index file",index_df)
+        # 교집합이 없는 경우
+        if not query_documents:
+            raise exceptions.ParseError("두 키워드의 교집합이 존재하지 않습니다")
 
         #최종결과
-        search_result = search_response(df,query_documents,tfidf_df,token_list)
+        search_result = search_response(df,query_documents,tfidf_df,new_token_list)
 
        #response message
         response = {'query':query,'data':search_result}
