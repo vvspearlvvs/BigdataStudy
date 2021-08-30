@@ -33,6 +33,6 @@ urlpatterns = [
     path('product/',views.ProductViewSet.as_view()), #token된 결과만 보여주려고
 
     #python manage.py search_index --rebuild
-    path('es/',views.ProductDocumentViewSet.as_view({'get':'list'})),
-    path('es2/',views.ESViewSet.as_view())
+    #path('es/',views.ProductDocumentViewSet.as_view({'get':'list'})),
+    #path('es2/',views.ESViewSet.as_view())
 ]

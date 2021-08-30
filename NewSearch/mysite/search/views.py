@@ -4,15 +4,7 @@ from rest_framework import viewsets, exceptions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-
-from .models import Product
 from .serializers import *
-from django_elasticsearch_dsl_drf.viewsets import DocumentViewSet
-
-from django_elasticsearch_dsl_drf.filter_backends import FilteringFilterBackend,CompoundSearchFilterBackend
-
-from elasticsearch import Elasticsearch
-import csv,json,re
 
 from .processing import *
 
@@ -30,52 +22,61 @@ class Search(APIView):
         if not 'query' in request.GET:
             raise exceptions.ParseError("검색어를 입력해주세요")
 
+        # model에 없을때만 data load, index 생성
+        prd_queryset = Product.objects.all()
+        prd_queryset.delete()
+
+        if prd_queryset.exists() == False:
+
+            df = data_load()
+
+            # product model에 data 넣기 -> 굳이?
+            product_obj = [Product(id=row['id'],name=row['name'],token=row['token']) for i,row in df.iterrows()]
+            Product.objects.bulk_create(product_obj)
+
+            # index parquet 파일생성
+            json_data = data_json(df)
+            save_invertedInex(json_data)
+
+            # tf-idf parquet 파일생성
+            save_tfidf(df)
+
+        #이미 load한 상태는 query 처리
         query = request.GET['query']
         print("검색어",query)
-
         token_list = tokenizer(query).split()
         print("토큰결과",token_list)
 
-        #토큰결과를 가지고 revered_index에서 documnet list찾아옴
-        df = data_load()
-        json_data = data_json(df)
-        invert_index = get_invertedInex(json_data)
-        tfidf = get_tfidf(df)
+        # 예외사항 : token에 해당하는 이름이 아니면 오류
+
+        #index file 가져오기
+        index_file ='C:\\Users\\gg664\\IdeaProjects\\Bigdata_Study\\NewSearch\\mysite\\search\\data\\test_index.parquet'
+        index_df = pq.read_table(index_file).to_pandas()
+        #print("index file",index_df)
 
 
-        #query가 있는 문서id 찾기
+        #토큰결과를 가지고 revered_index에서 documnet list찾아옴 -> 다시 행으로 검색해야함..
         q_documents=[]
-        for tk in token_list:
-            q_documents.append(set(invert_index[tk]))
+        search_token = index_df[index_df['token'].isin(token_list)]
+        for docu_list in search_token['docu_list']:
+            q_documents.append(set(docu_list))
+            #print(q_documents)
 
         # 문서들의 교집합
         query_documents = list(q_documents[0].intersection(*q_documents))
-        print("문서들의 교집합",query_documents)
+        #print(query_documents)
 
-        #교집합 문서들의 id,name
-        search_dc = df[df['id'].isin(query_documents)]
-        search_dc=search_dc.set_index('id')
+        #tf-idf file 가져오기
+        #index file 가져오기
+        tfidf_file ='C:\\Users\\gg664\\IdeaProjects\\Bigdata_Study\\NewSearch\\mysite\\search\\data\\test_tfidf.parquet'
+        tfidf_df = pq.read_table(tfidf_file).to_pandas()
+        #print("index file",index_df)
 
-        #교집합 문서들에 대해서 tf-dif(score값)
-        #tfidv_df.loc[query_documents] #교집합문서
-        search_tf = tfidf.loc[query_documents][token_list]
-        search_tf['score'] = search_tf.sum(axis=1)
-
-        # search_dc와 search_tf join (by id)
-        search=search_tf.join(search_dc,how='inner')
-        search['pid']=search.index
-        search.sort_values(by=['score'],ascending=[False],inplace=True) #score기준 정렬
-        print("검색결과",search)
-
-        response = search[['pid','name','score']]
-
-        # response msg
-        js = response.to_json(orient='records')
-        res_data =json.loads(js)
-
+        #최종결과
+        search_result = search_response(df,query_documents,tfidf_df,token_list)
 
        #response message
-        response = {'query':query,'data':res_data}
+        response = {'query':query,'data':search_result}
 
         return Response(response,status=200)
 
