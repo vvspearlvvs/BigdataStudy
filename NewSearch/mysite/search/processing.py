@@ -10,17 +10,24 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 
 import os
 BASE_PATH = os.path.dirname(os.path.abspath(__file__))
-DATA_PATH = BASE_PATH+'/data/'
-'''
+
+#testdata.ver
 DATA_PATH = BASE_PATH+'/test_data/'
-data_filename = 'test_data.csv'
+raw_data = 'test_data.csv'
+
+data_filename = 'data.parquet'
 index_filename = 'test_index.parquet'
 tfdif_filename = 'test_tfidf.parquet'
-'''
 
-data_filename = 'prodct_name.tsv'
+'''
+#realdata.ver
+raw_data = 'prodct_name.tsv'
+
+DATA_PATH = BASE_PATH+'/data/'
+data_filename = 'data.parquet'
 index_filename = 'index.parquet'
 tfdif_filename = 'tfidf.parquet'
+'''
 
 def tokenizer(data):
     token=[]
@@ -38,9 +45,13 @@ def tokenizer(data):
 
 def data_load():
     # parquet포맷으로 read csv
-    table = pc.read_csv(DATA_PATH+data_filename,parse_options=pc.ParseOptions(delimiter="\t"))
+    table = pc.read_csv(DATA_PATH+raw_data,parse_options=pc.ParseOptions(delimiter="\t"))
     df=table.to_pandas()
     df['token'] = df['name'].apply(tokenizer) #token 컬럼생성
+
+    #parquet파일 생성
+    table = pa.Table.from_pandas(df)
+    pq.write_table(table, DATA_PATH+data_filename)
 
     return df
 
