@@ -11,6 +11,7 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 import os
 BASE_PATH = os.path.dirname(os.path.abspath(__file__))
 
+'''
 #testdata.ver
 DATA_PATH = BASE_PATH+'/test_data/'
 raw_data = 'test_data.csv'
@@ -18,8 +19,8 @@ raw_data = 'test_data.csv'
 data_filename = 'data.parquet'
 index_filename = 'test_index.parquet'
 tfdif_filename = 'test_tfidf.parquet'
-
 '''
+
 #realdata.ver
 raw_data = 'prodct_name.tsv'
 
@@ -27,7 +28,7 @@ DATA_PATH = BASE_PATH+'/data/'
 data_filename = 'data.parquet'
 index_filename = 'index.parquet'
 tfdif_filename = 'tfidf.parquet'
-'''
+
 
 ## Tokenizer구현
 def tokenizer(data):
@@ -66,7 +67,7 @@ class DataSetting:
         return df
 
     ## invertIndex 생성/저장
-    def save_invertedInex(self, df):
+    def save_invertedIndex(self, df):
 
         # invertIndex생성준비 : dataframe을 row기반으로 변환
         js = df.to_json(orient = 'records') #row기반
@@ -85,50 +86,55 @@ class DataSetting:
         table = pa.Table.from_pandas(index_df)
         pq.write_table(table, DATA_PATH+index_filename)
 
-    ## TF-IDF통계값 생성/저장
-    def save_tfidf(self, df):
+## 검색구현
+class Mathching:
 
-        # TfidfVectorizer사용 : features의 토큰화기준은 직접구현한 tokenizer사용
+    ## invertIndex로 매칭
+    def match_invertedInex(self,index_df,token_list):
+
+        # invertIndex dataframe 사용해서 매칭되는 문서ID리스트검색
+        search_token =index_df[index_df['token'].isin(token_list)]
+        matching_list = search_token['docu_list']
+
+
+        tmp_doculist = [set(docu_list) for docu_list in matching_list]
+        intersect_doculist = list(tmp_doculist[0].intersection(*tmp_doculist))
+
+        # invertIndex에 있는 token list
+        check_token = list(search_token['token'])
+
         '''
-            문제 : 로컬 python의 메모리부족
-            원인 :  vect = TfidfVectorizer(tokenizer=tokenizer)에서 메모리부족
-            임시해결 : 가장 많이나온단어(max_features) 기준으로 100개 features 사용
-            임시해결 : 없는 features는 tf-idf socre 합계에 포함되지 않음
+        # 예외. invertIndex의 token에 없는 키워드로 검색한 경우
+        if len(check_token) == 0:
+            response = {'exception' : 'invertIndex에 없는 키워드로 검색했습니다'}
+            return Response(response,status=200)
         '''
-        vect = TfidfVectorizer(tokenizer=tokenizer,max_features=100)
+
+        return intersect_doculist
+
+    ## tf-idf로 score
+    def match_tfidf(self,df):
+        vect = TfidfVectorizer(tokenizer=tokenizer)
         tfvect_matrix = vect.fit_transform(df['name'])
         tfidf_col = vect.get_feature_names()
 
         # TF-IDF통계값 dataframe생성
-        tfidv_df = pd.DataFrame(tfvect_matrix.toarray(), index = list(df['id']), columns = sorted(tfidf_col)) #tf-idf적용 df생성
+        tfidv_df = pd.DataFrame(tfvect_matrix.toarray(), index = df.index, columns = sorted(tfidf_col)) #tf-idf적용 df생성
+        tfidv_df['score'] = tfidv_df.sum(axis=1)
+        tfidv_df.sort_values(by=['score'],ascending=[False],inplace=True) #score기준 정렬
+        tfidv_df = tfidv_df[:20]
 
-        # tfidf.parquet 파일저장
-        table = pa.Table.from_pandas(tfidv_df)
-        pq.write_table(table, DATA_PATH+tfdif_filename)
+        return tfidv_df
 
-def search_response(df,query_documents,tfidv_df,token_list):
-    #교집합 문서들의 id,name
-    search_dc = df[df['id'].isin(query_documents)]
-    search_dc=search_dc.set_index('id')
+    def match_result(self,data_df,intersect_doculist):
+        search_tf = data_df[data_df['id'].isin(intersect_doculist)]
+        search_tf = search_tf.set_index('id')
+        result_name = search_tf['name'] #id,name 검색결과
 
-    #교집합 문서들에 대해서 tf-dif(score값)
-    #tfidv_df.loc[query_documents] #
-    tf_token_list =[]
-    for token in token_list:
-        if token in tfidv_df.columns:
-            tf_token_list.append(token)
+        tfidf_df = self.match_tfidf(search_tf)
+        result_score = tfidf_df['score'] #id,score 검색결과
 
-    search_tf = tfidv_df.loc[query_documents][tf_token_list]
-    search_tf['score'] = search_tf.sum(axis=1)
+        result = pd.concat([result_name,result_score],axis=1)
+        result.reset_index(inplace=True)
 
-    # search_dc와 search_tf join (by id)
-    search=search_tf.join(search_dc,how='inner')
-    search['pid']=search.index
-    search.sort_values(by=['score'],ascending=[False],inplace=True) #score기준 정렬
-
-    # response msg
-    response = search[['pid','name','score']]
-    js = response.to_json(orient='records')
-    res_data =json.loads(js)
-
-    return res_data
+        return result
