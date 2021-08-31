@@ -9,8 +9,14 @@ import csv
 import os
 BASE_PATH = os.path.dirname(os.path.abspath(__file__))
 DATA_PATH = BASE_PATH+'/data/'
+'''
+DATA_PATH = BASE_PATH+'/test_data/'
 index_filename = 'test_index.parquet'
 tfdif_filename = 'test_tfidf.parquet'
+'''
+index_filename = 'index.parquet'
+tfdif_filename = 'tfidf.parquet'
+
 
 from .serializers import *
 from .processing import *
@@ -29,7 +35,7 @@ class Search(APIView):
     def get(self,request):
         if not 'query' in request.GET:
             raise exceptions.ParseError("Query Parameter Sample : /search?query=아이폰 ")
-
+        '''
         # model에 data -> df로사용
         raw_queryset = Product.objects.all()
         raw_queryset.delete()
@@ -49,10 +55,22 @@ class Search(APIView):
 
             # tf-idf parquet 파일생성
             save_tfidf(raw_df)
-
+            
         #이미 load한 상태
-        print("이미 세팅된 상태")
+        print("이미 세팅된 상태") #이게오래걸릴것 같은데
         df = pd.DataFrame(list(raw_queryset.values()))
+        '''
+
+        df = data_load()
+        # index parquet 파일생성
+        #json_data = data_json(df)
+        #save_invertedInex(json_data)
+
+        # tf-idf parquet 파일생성
+        #save_tfidf(df)
+
+        # save하기까지 약간 시간이 걸리는데?
+
 
         query = request.GET['query']
         print("검색어",query)
@@ -61,15 +79,20 @@ class Search(APIView):
 
         #index file 가져오기
         index_df = pq.read_table(DATA_PATH+index_filename).to_pandas()
+        print("index file 가져오기 성공")
         #tf-idf file 가져오기
         tfidf_df = pq.read_table(DATA_PATH+tfdif_filename).to_pandas()
+        print("tfidf file 가져오기 성공")
 
         #토큰결과를 가지고 revered_index에서 documnet list 검색 -> 다시 행으로 검색해야함..
         search_token = index_df[index_df['token'].isin(token_list)]
         new_token_list = list(search_token['token'])
+
         #없는 키워드로 검색할 경우
         if len(new_token_list) == 0:
             raise exceptions.ParseError("없는 키워드입니다")
+        print("새로운 token list")
+        print(new_token_list)
 
         #documnet list 검색
         q_documents=[]
@@ -100,7 +123,7 @@ class ProductViewSet(APIView):
         bulk_list=[]
         #데이터셋 bulk create
         if queryset.exists() == False:
-            with open("C:\\Users\\gg664\\IdeaProjects\\Bigdata_Study\\NewSearch\\mysite\\search\\data\\test_data.csv","r", encoding='UTF8') as raw_file:
+            with open("/mysite/search/test_data\\test_data.csv", "r", encoding='UTF8') as raw_file:
                 reader = csv.reader(raw_file,delimiter ='\t')
 
                 next(reader) # header 생략

@@ -1,0 +1,13 @@
+## intellj환경
+NewSearch/.gradle
+NewSearch/.ida
+NewSearch/NewSearch.imi
+
+## 실제 데이터
+NewSearch/mysite/search/data
+
+## db.sqlite3
+NewSearch/mysite/db.sqlite3-journal
+
+## 가상환경
+NewSearch/newevn
