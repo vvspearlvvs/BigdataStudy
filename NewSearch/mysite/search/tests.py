@@ -132,6 +132,57 @@ def get_tfidf(df):
 
     return tfidv_df
 
+# query = "갤럭시 중고폰"
+def search_response(df,query_documents,tfidv_df,token_list):
+    #교집합 문서들의 id,name
+    search_dc = df[df['id'].isin(query_documents)]
+    search_dc=search_dc.set_index('id')
+    #print(search_dc)
+    '''
+            name	token
+    id		
+    153709120	갤럭시 중고폰	[갤럭시, 중고폰]
+    153710656	갤럭시s10 갤럭시북 NT950XDZ-G58AW 중고폰	[갤럭시, s10, 갤럭시북, nt950xdz-g58aw, 중고폰]
+    '''
+
+    #교집합 문서들에 대해서 tf-dif(score값)
+    #tfidv_df.loc[query_documents] #
+    tf_token_list =[]
+    for token in token_list:
+        if token in tfidv_df.columns:
+            tf_token_list.append(token)
+
+    search_tf = tfidv_df.loc[query_documents][tf_token_list]
+    search_tf['score'] = search_tf.sum(axis=1)
+    #print(search_tf)
+    '''
+                갤럭시	    중고폰	    score
+    153709120	0.707107	0.707107	1.414214
+    153710656	0.373022	0.373022	0.746044
+    '''
+
+    # search_dc와 search_tf join (by id)
+    search=search_tf.join(search_dc,how='inner')
+    search['pid']=search.index
+    search.sort_values(by=['score'],ascending=[False],inplace=True) #score기준 정렬
+    #print(search)
+    '''
+                갤럭시	    중고폰	    score	    name	    token	        pid
+    153709120	0.707107	0.707107	1.414214	갤럭시 중고폰	[갤럭시, 중고폰]	153709120
+    153710656	0.373022	0.373022	0.746044	갤럭시s10 갤럭시북 NT950XDZ-G58AW 중고폰	[갤럭시, s10, 갤럭시북, nt950xdz-g58aw, 중고폰]	153710656
+     '''
+    # response msg
+    response = search[['pid','name','score']]
+    js = response.to_json(orient='records')
+    res_data =json.loads(js)
+    #print(res_dat)
+    '''
+    [   {'pid': 153709120, 'name': '갤럭시 중고폰', 'score': 0.7071067812},
+        {'pid': 153710656, 'name': '갤럭시s10 갤럭시북 NT950XDZ-G58AW 중고폰','score': 0.3730219859}  
+    ]
+    '''
+    return res_data
+
 if __name__=='__main__':
     df = data_load()
     json_data = data_json(df)

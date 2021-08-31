@@ -10,7 +10,7 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 
 import os
 BASE_PATH = os.path.dirname(os.path.abspath(__file__))
-
+'''
 #testdata.ver
 DATA_PATH = BASE_PATH+'/test_data/'
 raw_data = 'test_data.csv'
@@ -18,8 +18,8 @@ raw_data = 'test_data.csv'
 data_filename = 'data.parquet'
 index_filename = 'test_index.parquet'
 tfdif_filename = 'test_tfidf.parquet'
-
 '''
+
 #realdata.ver
 raw_data = 'prodct_name.tsv'
 
@@ -27,7 +27,7 @@ DATA_PATH = BASE_PATH+'/data/'
 data_filename = 'data.parquet'
 index_filename = 'index.parquet'
 tfdif_filename = 'tfidf.parquet'
-'''
+
 
 def tokenizer(data):
     token=[]
