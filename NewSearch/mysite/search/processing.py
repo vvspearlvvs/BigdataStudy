@@ -16,7 +16,7 @@ BASE_PATH = os.path.dirname(os.path.abspath(__file__))
 DATA_PATH = BASE_PATH+'/test_data/'
 raw_data = 'test_data.csv'
 
-data_filename = 'data.parquet'
+data_filename = 'test_data.parquet'
 index_filename = 'test_index.parquet'
 tfdif_filename = 'test_tfidf.parquet'
 '''
@@ -93,27 +93,19 @@ class Mathching:
     def match_invertedInex(self,index_df,token_list):
 
         # invertIndex dataframe 사용해서 매칭되는 문서ID리스트검색
-        search_token =index_df[index_df['token'].isin(token_list)]
+        search_token =index_df[index_df['token'].isin(token_list)] # isin으로 없는키워드 자동으로 검색제외
         matching_list = search_token['docu_list']
 
-
+        # 문서ID리스트들의 교집합
         tmp_doculist = [set(docu_list) for docu_list in matching_list]
         intersect_doculist = list(tmp_doculist[0].intersection(*tmp_doculist))
 
-        # invertIndex에 있는 token list
-        check_token = list(search_token['token'])
-
-        '''
-        # 예외. invertIndex의 token에 없는 키워드로 검색한 경우
-        if len(check_token) == 0:
-            response = {'exception' : 'invertIndex에 없는 키워드로 검색했습니다'}
-            return Response(response,status=200)
-        '''
-
         return intersect_doculist
 
-    ## tf-idf로 score
+    ## tf-idf로 적용한 dataframe 생성
     def match_tfidf(self,df):
+
+        # 사이킷런의 TfidfVectorizer 사용
         vect = TfidfVectorizer(tokenizer=tokenizer)
         tfvect_matrix = vect.fit_transform(df['name'])
         tfidf_col = vect.get_feature_names()
@@ -122,19 +114,22 @@ class Mathching:
         tfidv_df = pd.DataFrame(tfvect_matrix.toarray(), index = df.index, columns = sorted(tfidf_col)) #tf-idf적용 df생성
         tfidv_df['score'] = tfidv_df.sum(axis=1)
         tfidv_df.sort_values(by=['score'],ascending=[False],inplace=True) #score기준 정렬
-        tfidv_df = tfidv_df[:20]
 
         return tfidv_df
 
+    ## 최종매칭
     def match_result(self,data_df,intersect_doculist):
-        search_tf = data_df[data_df['id'].isin(intersect_doculist)]
-        search_tf = search_tf.set_index('id')
-        result_name = search_tf['name'] #id,name 검색결과
 
-        tfidf_df = self.match_tfidf(search_tf)
-        result_score = tfidf_df['score'] #id,score 검색결과
+        # id-name 검색결과 : 원본data의 data_df사용
+        search_df = data_df[data_df['id'].isin(intersect_doculist)]
+        search_df = search_df.set_index('id')
+        result_name = search_df['name']
 
-        result = pd.concat([result_name,result_score],axis=1)
-        result.reset_index(inplace=True)
+        # id-score 검색결과 : tfidf_df사용
+        tfidf_df = self.match_tfidf(search_df) #match_tfidf로 생성
+        result_score = tfidf_df['score']
 
+        # id(인덱스)기준 merge : pid,name,score
+        result = pd.merge(result_score, result_name,left_index=True, right_index=True,how='inner')
+        result = result.rename_axis('pid').reset_index() #인덱스를 pid columns으로 변경
         return result
