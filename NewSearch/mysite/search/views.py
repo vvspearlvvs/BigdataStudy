@@ -7,14 +7,6 @@ from rest_framework.views import APIView
 import os
 BASE_PATH = os.path.dirname(os.path.abspath(__file__))
 
-'''
-#testdata.ver
-DATA_PATH = BASE_PATH+'/test_data/'
-data_filename = 'test_data.parquet'
-index_filename = 'test_index.parquet'
-tfdif_filename = 'test_tfidf.parquet'
-'''
-
 #realdata.ver
 DATA_PATH = BASE_PATH+'/data/'
 data_filename = 'data.parquet'
@@ -60,18 +52,13 @@ class Search(APIView):
         data_df = pq.read_table(DATA_PATH+data_filename).to_pandas()
         index_df = pq.read_table(DATA_PATH+index_filename).to_pandas()
 
-        #예외. invertIndex의 token에 없는 키워드로 검색한 경우
-        if len(token_list) == 1 and token_list not in list(index_df['token']):
-            response = {'exception' : 'invertIndex에 없는 키워드로 검색했습니다'}
-            return Response(response,status=200)
-
         # invertIndex로 매칭되는 문서ID리스트들의 교집합 가져옴
         matching_doculist = match.match_invertedInex(index_df,token_list)
         print("매칭되는 문서ID리스트들의 교집합", len(matching_doculist))
 
         # 예외. 교집합 문서ID가 없는 경우
         if not matching_doculist:
-            response = {'exception' : '교집합 문서ID가 없가 존재하지 않습니다'}
+            response = {'exception' : '검색결과가 존재하지 않습니다'}
             return Response(response,status=200)
 
         # 각 문서에 대하여 TF-IDF를 이용해서 score계산

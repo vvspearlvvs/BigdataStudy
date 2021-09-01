@@ -11,16 +11,6 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 import os
 BASE_PATH = os.path.dirname(os.path.abspath(__file__))
 
-'''
-#testdata.ver
-DATA_PATH = BASE_PATH+'/test_data/'
-raw_data = 'test_data.csv'
-
-data_filename = 'test_data.parquet'
-index_filename = 'test_index.parquet'
-tfdif_filename = 'test_tfidf.parquet'
-'''
-
 #realdata.ver
 raw_data = 'prodct_name.tsv'
 
@@ -93,12 +83,15 @@ class Mathching:
     def match_invertedInex(self,index_df,token_list):
 
         # invertIndex dataframe 사용해서 매칭되는 문서ID리스트검색
-        search_token =index_df[index_df['token'].isin(token_list)] # isin으로 없는키워드 자동으로 검색제외
+        search_token =index_df[index_df['token'].isin(token_list)]
         matching_list = search_token['docu_list']
 
         # 문서ID리스트들의 교집합
-        tmp_doculist = [set(docu_list) for docu_list in matching_list]
-        intersect_doculist = list(tmp_doculist[0].intersection(*tmp_doculist))
+        try:
+            tmp_doculist = [set(docu_list) for docu_list in matching_list]
+            intersect_doculist = list(tmp_doculist[0].intersection(*tmp_doculist))
+        except IndexError:
+            intersect_doculist = [] #예외.교집합 문서ID가 없거나 올바르지 않은 검색어일 경우
 
         return intersect_doculist
 

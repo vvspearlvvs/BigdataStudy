@@ -1,8 +1,6 @@
 from django.contrib.auth.models import User,Group
 from rest_framework import serializers
 
-from .models import Product
-
 #데이터받아서 직렬화 시키는 작업
 class UserSerializer(serializers.HyperlinkedModelSerializer):
     class Meta:
@@ -14,8 +12,3 @@ class GroupSerializer(serializers.HyperlinkedModelSerializer):
         model = Group
         fields = ['url', 'name']
 
-
-class ProductSerializer(serializers.ModelSerializer):
-    class Meta:
-        model=Product
-        fields =['id','name']
