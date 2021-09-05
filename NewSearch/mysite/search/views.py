@@ -6,12 +6,18 @@ from rest_framework.views import APIView
 
 import os
 BASE_PATH = os.path.dirname(os.path.abspath(__file__))
-
+'''
 #realdata.ver
 DATA_PATH = BASE_PATH+'/data/'
 data_filename = 'data.parquet'
 index_filename = 'index.parquet'
-tfdif_filename = 'tfidf.parquet'
+'''
+
+#testdata.ver
+DATA_PATH = BASE_PATH+'/data/'
+data_filename = 'data.parquet'
+index_filename = 'index.parquet'
+
 
 
 from .serializers import *
