@@ -31,7 +31,7 @@ Airflow, 추천시스템, 데이터전처리, EDA 등 데이터관련 개인학�
 
 ### 수행과정
 
-![images](./NewSearch/Test/images/images.png)
+![images](./NewSearch/Test/images/images.PNG)
 
 - 초기검색
   - data load : /data/proct_name.tsv 파일을 pyarrow로 읽어서 data.parquet로 저장
@@ -42,9 +42,9 @@ Airflow, 추천시스템, 데이터전처리, EDA 등 데이터관련 개인학�
   - 사이킷런의 TfidfVectorizer 사용해서 dataframe(tfidf_df)로 사용 -> 검색된 교집합ID의 id,score 저장
   - Response : score기준으로 정렬된 상위20개 검색결과(id,name,score)
 
-### 프로젝트결과
+### 수행결과
 
-![result](./NewSearch/Test/images/test_result.png)
+![result](./NewSearch/Test/images/test_result.PNG)
 
 - 한계점 및 보완할점
   - 초기세팅(data load) 최대1분 소요, 하지만 parquet파일이 load 된 상태라면 검색빠름
