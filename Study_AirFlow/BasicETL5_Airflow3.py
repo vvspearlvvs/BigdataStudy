@@ -25,7 +25,7 @@ Airflow WEB-Admin-Connections에서 직접 환경변수 설정
 def get_Redshift_connection(autocommit):
     host = "learnde.cduaw970ssvt.ap-northeast-2.redshift.amazonaws.com"
     redshift_user = "gg66477"
-    redshift_pass = "Gg66477!1"
+    redshift_pass = ""
     port = 5439
     dbname = "dev"
     conn = psycopg2.connect("dbname={dbname} user={user} host={host} password={password} port={port}".format(
