@@ -4,7 +4,15 @@ import logging
 from datetime import datetime
 from datetime import timedelta
 
-from airflow.models import Variable
+# airflow추가
+from airflow import DAG
+from airflow.operators.python import PythonOperator
+
+# 환경변수 추가
+from airflow.models import Variable 
+
+# Connection객체 추가
+from airflow.hooks.postgres_hook import PostgresHook
 
 def get_Redshift_connection():
     # autocommit is False by default
@@ -14,7 +22,7 @@ def get_Redshift_connection():
 def extract(**context):
     
     api_key = Variable.get("open_weather_api_key")     # APIKey 환경변수
-    api_url = Variable.get("open_weather_api_url")     # APIKey 환경변수
+    api_url = Variable.get("open_weather_api_url")     # APIURL 환경변수
     
     lat = context['params']['lat']               # 위도 파라미터
     lon = context['params']['lat']               # 경도 파라미터
