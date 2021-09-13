@@ -17,9 +17,8 @@ from airflow.models import Variable
 # Connection객체 추가
 from airflow.hooks.postgres_hook import PostgresHook
 
-# Redshift connection 함수
+# Redshift connection 함수 -> Connection객체사용
 # - redshift_user와 redshift_pass를 본인 것으로 수정!
-
 def get_Redshift_connection():
     hook = PostgresHook(postgres_conn_id='redshift_dev_db')
     '''
@@ -57,19 +56,19 @@ def load(**context):
     schema = context["params"]["schema"]    # DB 스키마 파라미터
     table = context["params"]["table"]      # DB 테이블 파라미터
 
-    cur = get_Redshift_connection(True)
+    cur = get_Redshift_connection()         # Connection객체를 사용할 경우 autocommit은 항상 False!!
     lines = context["task_instance"].xcom_pull(key="return_value", task_ids="transform") #transform함수에서 return한 value를 받아옴
     lines = iter(lines)
     next(lines)
 
-    sql = "BEGIN; DELETE FROM {schema}.{table};".format(schema=schema, table=table)
+    sql = "DELETE FROM {schema}.{table};".format(schema=schema, table=table)
     print("load started")
     for r in lines:
         if r != '':
             (name, gender) = r.split(",")
             #print(name, "-", gender)
             sql += """INSERT INTO {schema}.{table} VALUES ('{name}', '{gender}');""".format(schema=schema, table=table, name=name, gender=gender)
-    sql += "END;"
+    sql += "Commit;"
     cur.execute(sql)
     print("load ended")
 
